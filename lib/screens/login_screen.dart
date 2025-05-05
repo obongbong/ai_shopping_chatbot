@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'package:ai_shopping_chatbot/screens/my_page_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'main_screen.dart';

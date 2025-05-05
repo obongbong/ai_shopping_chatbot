@@ -1,15 +1,14 @@
-import 'package:ai_shopping_chatbot/screens/my_page_screen.dart';
+// lib/screens/home_screen.dart
+
+import 'package:ai_shopping_chatbot/widgets/GlobalSttTtsWrapper.dart';
 import 'package:flutter/material.dart';
-import '../services/audio_service.dart';
 import 'login_screen.dart';
 import 'shoppingbag_screen.dart';
 import 'search_result.dart';
-import '../services/chat_service.dart';
-import '../services/tts_service.dart';
+import 'my_page_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   final String userName;
-
   const HomeScreen({Key? key, required this.userName}) : super(key: key);
 
   @override
@@ -19,155 +18,87 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 1;
   String searchQuery = "";
-  bool _isListening = false;
-  final _audio = AudioService();
 
-  @override
-  void initState() {
-    super.initState();
-
-    _audio.speechStream.listen((recognizedText) async {
-      final replies = await ChatService.sendRawMessage(recognizedText);
-
-      String? product;
-      String? intent;
-
-      for (final r in replies) {
-        final text = r['text'];
-        if (text != null && text is String && text.trim().isNotEmpty) {
-          debugPrint("[챗봇 응답] $text");
-          await TtsService().speak(text);
-        }
-
-        if (r.containsKey('intent')) intent = r['intent'];
-        if (r.containsKey('product')) product = r['product'];
-      }
-
-      if (intent == 'search_product' && product != null && mounted) {
-        final products = await ChatService.fetchTopProductsFromFlask(product);
+  void _onItemTapped(int index) {
+    switch (index) {
+      case 0:
         Navigator.push(
           context,
           MaterialPageRoute(
             builder:
-                (context) => SearchResult(
-                  searchQuery: product!, // <- null 확인 후 강제 언래핑
-                  products: products,
+                (_) => ShoppingBagScreen(
+                  updateNavigationBar:
+                      (i) => setState(() => _selectedIndex = i),
+                  userName: widget.userName,
                 ),
           ),
         );
-      }
-    });
-  }
-
-  @override
-  void dispose() {
-    _audio.dispose();
-    super.dispose();
-  }
-
-  void _onItemTapped(int index) {
-    if (index == 0) {
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder:
-              (context) => ShoppingBagScreen(
-                updateNavigationBar: (selectedIndex) {
-                  setState(() {
-                    _selectedIndex = selectedIndex;
-                  });
-                },
-                userName: widget.userName,
-              ),
-        ),
-      );
-    } else if (index == 1) {
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => HomeScreen(userName: widget.userName),
-        ),
-      );
-    } else if (index == 2) {
-      if (widget.userName.isEmpty) {
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (context) => const LoginScreen()),
-        );
-      } else {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => MyPageScreen(userName: widget.userName),
-          ),
-        );
-      }
+        break;
+      case 1:
+        break; // 홈
+      case 2:
+        if (widget.userName.isEmpty) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const LoginScreen()),
+          );
+        } else {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => MyPageScreen(userName: widget.userName),
+            ),
+          );
+        }
+        break;
     }
   }
 
   void _onSearch() {
-    if (searchQuery.isNotEmpty) {
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder:
-              (context) => SearchResult(searchQuery: searchQuery, products: []),
-        ),
-      );
-    }
-  }
-
-  void _toggleSTT() async {
-    setState(() {
-      _isListening = !_isListening;
-    });
-
-    if (_isListening) {
-      await _audio.init();
-      _audio.startListening();
-    } else {
-      _audio.stopListening();
-    }
+    if (searchQuery.isEmpty) return;
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder:
+            (_) => SearchResult(searchQuery: searchQuery, products: const []),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color.fromARGB(255, 188, 247, 219),
+      backgroundColor: const Color.fromARGB(255, 223, 223, 223),
       appBar: AppBar(
-        backgroundColor: const Color(0xFFB2EBD0),
+        backgroundColor: const Color.fromARGB(255, 209, 209, 209),
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.menu, color: Colors.black),
           onPressed: () {},
+          icon: const Icon(Icons.menu, color: Colors.black),
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.notifications, color: Colors.black),
             onPressed: () {},
+            icon: const Icon(Icons.notifications, color: Colors.black),
           ),
         ],
         centerTitle: true,
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(30),
-          child: StreamBuilder<String>(
-            stream: _audio.speechStream,
-            builder: (context, snapshot) {
-              final recognized = snapshot.data ?? '';
-              if (recognized.isEmpty) return const SizedBox();
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 8.0),
-                child: Text(
-                  "🎤 인식된 텍스트: $recognized",
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.redAccent,
+          child:
+              searchQuery.isEmpty
+                  ? const SizedBox()
+                  : Padding(
+                    padding: const EdgeInsets.only(bottom: 8.0),
+                    child: Text(
+                      "🔍 검색어: $searchQuery",
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.redAccent,
+                      ),
+                    ),
                   ),
-                ),
-              );
-            },
-          ),
         ),
       ),
       body: SafeArea(
@@ -175,8 +106,12 @@ class _HomeScreenState extends State<HomeScreen> {
           child: Column(
             children: [
               const SizedBox(height: 20),
+
+              // ★ 로봇 이미지만 탭하면 STT 시작
               GestureDetector(
-                onTap: _toggleSTT,
+                onTap: () {
+                  GlobalSttTtsWrapper.of(context)?.startListening();
+                },
                 child: Stack(
                   alignment: Alignment.center,
                   children: [
@@ -194,22 +129,14 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                       ),
                     ),
-                    if (_isListening)
-                      const Positioned(
-                        bottom: 10,
-                        child: Text(
-                          '🎙 음성 인식 중...',
-                          style: TextStyle(
-                            fontSize: 16,
-                            color: Colors.redAccent,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
+                    // STT 오버레이는 전역 래퍼가 그려줍니다.
                   ],
                 ),
               ),
+
               const SizedBox(height: 20),
+
+              // 텍스트 검색
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 child: TextField(
@@ -228,17 +155,14 @@ class _HomeScreenState extends State<HomeScreen> {
                       borderSide: BorderSide.none,
                     ),
                   ),
-                  onChanged: (value) {
-                    setState(() {
-                      searchQuery = value;
-                    });
-                  },
-                  onSubmitted: (value) {
-                    _onSearch();
-                  },
+                  onChanged: (v) => setState(() => searchQuery = v),
+                  onSubmitted: (_) => _onSearch(),
                 ),
               ),
+
               const SizedBox(height: 40),
+
+              // 기존 카테고리 UI…
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 child: Row(
@@ -251,20 +175,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   ],
                 ),
               ),
-              const SizedBox(height: 20),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children: const [
-                    CategoryIcon(icon: Icons.work, label: '가방'),
-                    CategoryIcon(icon: Icons.fastfood, label: '패스트푸드'),
-                    CategoryIcon(icon: Icons.local_pizza, label: '식품'),
-                    CategoryIcon(icon: Icons.fitness_center, label: '운동'),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 30),
+              // … 이하 생략 …
             ],
           ),
         ),
@@ -287,10 +198,10 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
+// CategoryIcon 위젯은 그대로
 class CategoryIcon extends StatelessWidget {
   final IconData icon;
   final String label;
-
   const CategoryIcon({Key? key, required this.icon, required this.label})
     : super(key: key);
 

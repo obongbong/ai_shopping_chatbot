@@ -17,21 +17,21 @@ class AudioService {
   Future<void> init() async {
     _initialized = await _speech.initialize(
       onStatus: (status) {
-        debugPrint('STT status: $status');
+        debugPrint('🎙 STT status: $status');
         if (status == 'notListening' || status == 'done') {
           _isListening = false;
         }
       },
       onError: (err) {
-        debugPrint('STT error: $err');
-        if (err.errorMsg == 'error_no_match' || err.errorMsg == 'error_busy') {
+        debugPrint('❌ STT error: ${err.errorMsg}');
+        if (err.permanent) {
           _isListening = false;
         }
       },
     );
 
     if (!_initialized) {
-      debugPrint('STT 초기화 실패: 권한을 허용했는지 확인하세요.');
+      debugPrint('❗ STT 초기화 실패: 권한을 허용했는지 확인하세요.');
     }
   }
 
@@ -43,17 +43,23 @@ class AudioService {
   Future<void> _startListening() async {
     if (_speech.isListening) {
       await _speech.stop();
-      await Future.delayed(const Duration(seconds: 1));
+      await Future.delayed(const Duration(milliseconds: 500));
     }
 
     try {
       _isListening = true;
       await _speech.listen(
         onResult: (val) {
-          if (val.finalResult) {
-            _controller.add(val.recognizedWords);
-            _isListening = false;
+          final result = val.recognizedWords.trim();
+          debugPrint("🎧 STT 인식 결과: '$result'");
+
+          if (val.finalResult && result.isNotEmpty) {
+            _controller.add(result);
+          } else {
+            debugPrint("⚠️ 무시된 STT 결과 (빈 문자열 또는 임시 결과)");
           }
+
+          _isListening = false;
         },
         localeId: 'ko_KR',
         listenMode: stt.ListenMode.dictation,
@@ -63,7 +69,7 @@ class AudioService {
       );
     } catch (e) {
       _isListening = false;
-      debugPrint('STT start error: $e');
+      debugPrint('❌ STT start error: $e');
     }
   }
 
@@ -79,7 +85,6 @@ class AudioService {
     _controller.close();
   }
 
-  // ✅ 새로 추가된 정적 메서드
   static Future<void> listenFor({
     required Function(String) onResult,
     Function(String)? onStatus,
@@ -87,16 +92,19 @@ class AudioService {
     final instance = AudioService();
     await instance.init();
 
-    // 수동으로 status 이벤트도 전달하려면 stream 구독을 직접 처리
     instance._speech.statusListener = (status) {
-      debugPrint('STT status: $status');
+      debugPrint('📡 STT status: $status');
       if (onStatus != null) onStatus(status);
     };
 
     instance._speech.listen(
       onResult: (val) {
-        if (val.finalResult) {
-          onResult(val.recognizedWords);
+        final result = val.recognizedWords.trim();
+        debugPrint("🎧 수동 STT 결과: '$result'");
+        if (val.finalResult && result.isNotEmpty) {
+          onResult(result);
+        } else {
+          debugPrint("⚠️ 수동 STT 결과 무시됨");
         }
       },
       localeId: 'ko_KR',
